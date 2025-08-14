@@ -170,7 +170,7 @@ pub const I2C_Device = struct {
         const dev: *I2C_Device = @ptrCast(@alignCast(dd));
         if (addr.is_reserved())
             return I2CError.IllegalAddress;
-        dev.address = @enumFromInt(@intFromEnum(addr));
+        dev.address = addr;
     }
 
     fn i2c_writev_fn(dd: *anyopaque, chunks: []const []const u8) I2CError!void {
