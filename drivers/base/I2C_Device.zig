@@ -35,6 +35,8 @@ pub const Address = enum(u7) {
     /// The general call addresses all devices on the bus using the I²C address 0.
     pub const general_call: Address = @enumFromInt(0x00);
 
+    const AllowReserved = enum { AllowReserved, DontAllowReserved };
+
     ///
     /// Returns an AddressError if the Address is a reserved I²C address.
     /// The error gives detail on why the address is reserved, allowing the client to determine
@@ -76,9 +78,9 @@ ptr: *anyopaque,
 /// Virtual table for the datagram device functions.
 vtable: *const VTable,
 
-pub fn set_address(dev: I2C_Device, addr: Address) InterfaceError!void {
+pub fn set_address(dev: I2C_Device, addr: Address, allow_reserved: Address.AllowReserved) InterfaceError!void {
     const set_address_fn = dev.vtable.set_address_fn orelse return InterfaceError.Unsupported;
-    return set_address_fn(dev.ptr, addr);
+    return set_address_fn(dev.ptr, addr, allow_reserved);
 }
 
 /// Writes a single `datagram` to the device.
@@ -121,7 +123,7 @@ pub fn readv(dev: I2C_Device, datagrams: []const []u8) InterfaceError!usize {
 }
 
 pub const VTable = struct {
-    set_address_fn: ?*const fn (*anyopaque, Address) InterfaceError!void,
+    set_address_fn: ?*const fn (*anyopaque, Address, Address.AllowReserved) InterfaceError!void,
     writev_fn: ?*const fn (*anyopaque, datagrams: []const []const u8) InterfaceError!void,
     readv_fn: ?*const fn (*anyopaque, datagrams: []const []u8) InterfaceError!usize,
     writev_then_readv_fn: ?*const fn (
@@ -188,9 +190,10 @@ pub const Test_Device = struct {
         };
     }
 
-    fn set_address(ctx: *anyopaque, addr: Address) InterfaceError!void {
+    fn set_address(ctx: *anyopaque, addr: Address, allow_reserved: Address.AllowReserved) InterfaceError!void {
         const td: *Test_Device = @ptrCast(@alignCast(ctx));
-        if (addr.is_reserved()) return Error.IllegalAddress;
+        if (allow_reserved == .DontAllowReserved)
+            addr.is_reserved() catch return Error.IllegalAddress;
         td.addr = addr;
     }
 
